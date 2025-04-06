@@ -1,6 +1,6 @@
 // API Gateway
 resource "aws_api_gateway_rest_api" "rest_api" {
-  name        = "SendgridWebhooksApiAuthFnDev"
+  name        = "${local.api_aws_lambda}${var.stack_suffix}"
   description = "SendGridAPI"
 
   endpoint_configuration {
@@ -9,7 +9,7 @@ resource "aws_api_gateway_rest_api" "rest_api" {
 }
 
 resource "aws_api_gateway_authorizer" "sendgrid_dev_auth" {
-  name                   = "SendgridWebhooksApiAuthDev"
+  name                   = "${local.api_authorizer}${var.stack_suffix}"
   authorizer_credentials = aws_iam_role.sendgrid.arn
   rest_api_id            = aws_api_gateway_rest_api.rest_api.id
   type                   = "REQUEST"
@@ -29,9 +29,6 @@ resource "aws_api_gateway_method" "proxy_post" {
   http_method   = "POST"
   authorization = "CUSTOM"
   authorizer_id = aws_api_gateway_authorizer.sendgrid_dev_auth.id
-  # request_parameters = {
-  #   "method.request.header.Content-Type" = "false"
-  # }
 
 }
 resource "aws_api_gateway_method_response" "proxy_post" {
@@ -47,14 +44,7 @@ resource "aws_api_gateway_method_response" "proxy_post" {
   }
   depends_on = [aws_api_gateway_method.proxy_post]
 }
-resource "aws_api_gateway_model" "sendgrid_auth" {
-  rest_api_id  = aws_api_gateway_rest_api.rest_api.id
-  name         = "SendgridAuthDevModel"
-  description  = "SendgridAuth"
-  content_type = "application/json"
 
-  schema = "{\n  \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n  \"title\" : \"Empty Schema\",\n  \"type\" : \"object\"\n}"
-}
 resource "aws_api_gateway_integration" "sendgrid_dev" {
   rest_api_id             = aws_api_gateway_rest_api.rest_api.id
   resource_id             = aws_api_gateway_resource.root.id
@@ -107,7 +97,7 @@ resource "aws_api_gateway_deployment" "deployment" {
 resource "aws_api_gateway_stage" "sendgrid_dev" {
   deployment_id = aws_api_gateway_deployment.deployment.id
   rest_api_id   = aws_api_gateway_rest_api.rest_api.id
-  stage_name    = "SendgridWebhooksApiStageDev"
+  stage_name    = "${local.api_stage}${var.stack_suffix}"
 }
 resource "aws_iam_role_policy_attachment" "main" {
   role       = aws_iam_role.sendgrid.name
@@ -128,4 +118,12 @@ resource "aws_api_gateway_method_settings" "sendgrid_dev" {
 
 output "rest_api" {
   value = aws_api_gateway_rest_api.rest_api
+}
+locals {
+  #path_part is not allowed to be empty in terraform, so if we see that is populated, the test is Stage
+  function_portion = length(aws_api_gateway_resource.root.path_part) > 1 ? local.api_stage : local.queue
+  api_domain       = "execute-api.us-east-1.amazonaws.com"
+}
+output "test_endpoint" {
+  value = "https://${aws_api_gateway_rest_api.rest_api.id}.${local.api_domain}${local.function_portion}${var.stack_suffix}"
 }

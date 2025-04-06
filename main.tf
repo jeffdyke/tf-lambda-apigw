@@ -1,9 +1,18 @@
 locals {
-  sqs_name = "SendgridWebhooksQueueDev"
+  sqs_prefix     = "SendgridWebhooks"
+  queue          = "${local.sqs_prefix}Queue"
+  policy         = "${local.sqs_prefix}Policy"
+  role           = "${local.sqs_prefix}Role"
+  api            = "${local.sqs_prefix}Api"
+  api_authorizer = "${local.api}Auth"
+  api_aws_lambda = "${local.api_authorizer}Fn"
+  api_method     = "${local.api}Method"
+  api_deployment = "${local.api}Deployment"
+  api_stage      = "${local.api}Stage"
 }
 module "sqs" {
   source   = "../modules/terraform-aws-sqs"
-  queues   = [local.sqs_name]
+  queues   = ["${local.queue}${var.stack_suffix}"]
   template = "../templates/aws_sqs_default_policy.json"
   use_kms  = true
 }
@@ -31,20 +40,12 @@ data "aws_iam_policy_document" "dev_sendgrid_assume_policy" {
   }
 }
 
-resource "aws_iam_policy" "sendgrid" {
-  policy = templatefile("${path.module}/../templates/sqs_to_lambda.json", {
-    queue_resource = "SendgridWebhooksQueueDev",
-    lambda_func    = "SendgridWebhooksApiAuthFnDev"
-  })
-  name = "SendgridWebhooksPolicyDev"
-}
-
 data "aws_iam_policy_document" "dev_sendgrid_sqs_policy" {
   version = "2012-10-17"
   statement {
     effect    = "Allow"
     actions   = ["sqs:SendMessage"]
-    resources = [module.sqs.sqs_queues["SendgridWebhooksQueueDev"]]
+    resources = [module.sqs.sqs_queues["${local.queue}${var.stack_suffix}"]]
   }
   statement {
     effect    = "Allow"
@@ -62,13 +63,13 @@ data "aws_iam_policy_document" "dev_sendgrid_sqs_policy" {
   }
 }
 resource "aws_iam_policy" "sendgrid_dev_sqs" {
-  name   = "sendgrid_dev_sqs"
+  name   = "${local.policy}${var.stack_suffix}"
   policy = data.aws_iam_policy_document.dev_sendgrid_sqs_policy.json
 
 }
 resource "aws_lambda_function" "sendgrid_dev_auth" {
   filename         = data.archive_file.sendgrid_dev_auth.output_path
-  function_name    = "SendgridWebhooksApiAuthFnDev"
+  function_name    = "${local.api_aws_lambda}${var.stack_suffix}"
   role             = aws_iam_role.sendgrid.arn
   runtime          = "nodejs22.x"
   handler          = "index.handler"
@@ -76,7 +77,7 @@ resource "aws_lambda_function" "sendgrid_dev_auth" {
 }
 
 resource "aws_iam_role" "sendgrid" {
-  name               = "dev_sendgrid_apigateway"
+  name               = "${local.role}${var.stack_suffix}"
   path               = "/"
   assume_role_policy = data.aws_iam_policy_document.dev_sendgrid_assume_policy.json
 }
