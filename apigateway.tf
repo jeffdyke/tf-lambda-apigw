@@ -125,31 +125,7 @@ resource "aws_api_gateway_method_settings" "sendgrid_dev" {
     throttling_burst_limit = null
   }
 }
-# # // domain
-# resource "aws_acm_certificate" "my_api_cert" {
-#   domain_name               = "api.sumeet.life"
-#   provider                  = aws.aws_useast1
-#   subject_alternative_names = ["api.sumeet.life"] # Your custom domain
-#   validation_method         = "DNS"
-# }
 
-# resource "aws_api_gateway_domain_name" "gw_domain" {
-#   certificate_arn = aws_acm_certificate.my_api_cert.arn
-#   domain_name     = "api.sumeet.life"
-#   security_policy = "TLS_1_2"
-# }
-
-# resource "aws_api_gateway_base_path_mapping" "gw_mapping" {
-#   domain_name = aws_api_gateway_rest_api.rest_api.do
-#   api_id      = aws_api_gateway_rest_api.rest_api.id
-#   stage_name  = aws_api_gateway_stage.sendgrid_dev.stage_name
-# }
 output "rest_api" {
   value = aws_api_gateway_rest_api.rest_api
-}
-output "auth" {
-  value = aws_api_gateway_authorizer.sendgrid_dev_auth
-}
-output "integration" {
-  value = aws_api_gateway_integration.sendgrid_dev
 }
